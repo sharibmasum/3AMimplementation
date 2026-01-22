@@ -98,7 +98,7 @@ class SAM2:
 
         output_path = os.path.join(os.getcwd(), 'videos', 'output_segmented.mp4')
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        fps = 30  # Adjust to the input videos FPS
+        fps = 30  # adjust to the input videos FPS
         out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
         print('Saving video...')

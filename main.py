@@ -58,7 +58,7 @@ def getFrames(videoFile): # helper function
 
 
 if __name__ == '__main__':
-    # getFrames('/Users/sharibmasum/PycharmProjects/3AMimplementation/videos/Soccer.mp4')
+    # getFrames('/Users/sharibmasum/PycharmProjects/3AMimplementation/videos/[video]')
     # runFirstFrame()
     # runMaskFirstFrame([[100, 460]])
     run_segment_video([[100, 460]])
