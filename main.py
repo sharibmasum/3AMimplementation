@@ -6,18 +6,26 @@ def runFirstFrame():
     sam2 = SAM2()
     sam2.viewFirstFrame()
 
-
 def runMaskFirstFrame(point):
     sam2 = SAM2()
     sam2.prepareModel()
     sam2.maskFirstFrame(point, show=True)
 
 
-def run_segment_video(point):
+def run_segment_video(point, run_metrics=True):
     sam2 = SAM2()
     sam2.prepareModel()
     sam2.maskFirstFrame(point, show=False)
     sam2.segmentVideo()
+    if run_metrics:
+        from metrics import evaluate_masks
+        pred_dir = os.path.join(os.getcwd(), 'videos', 'pred_masks')
+        gt_dir = os.path.join(os.getcwd(), 'videos', 'gt_masks')
+        results = evaluate_masks(pred_dir, gt_dir)
+        print("Whole Set:")
+        print(f"  IoU: {results['iou']:.4f}")
+        print(f"  Positive IoU: {results['positive_iou']:.4f}")
+        print(f"  Successful IoU: {results['successful_iou']:.4f}")
 
 
 def extractFrames(videoPath, outputFolder, skip_frames): # extracting the frames, helper
@@ -58,7 +66,7 @@ def getFrames(videoFile): # helper function
 
 
 if __name__ == '__main__':
-    # getFrames('/Users/sharibmasum/PycharmProjects/3AMimplementation/videos/[video]')
+    # getFrames('/Users/sharibmasum/PycharmProjects/3AMimplementation/testvideo.mp4')
     # runFirstFrame()
-    # runMaskFirstFrame([[100, 460]])
-    run_segment_video([[100, 460]])
+    # runMaskFirstFrame([[206, 350]])
+    run_segment_video([[206, 350]])
