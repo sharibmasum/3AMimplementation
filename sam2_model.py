@@ -97,6 +97,8 @@ class SAM2:
         height, width = firstFrame.shape[:2]
 
         output_path = os.path.join(os.getcwd(), 'videos', 'output_segmented.mp4')
+        pred_masks_dir = os.path.join(os.getcwd(), 'videos', 'pred_masks')
+        os.makedirs(pred_masks_dir, exist_ok=True)
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         fps = 30  # adjust to the input videos FPS
         out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
@@ -104,9 +106,15 @@ class SAM2:
         print('Saving video...')
         for outFrameIdx in range(0, len(self.frame_names)):
             frame = cv2.imread(os.path.join(self.video_dir, self.frame_names[outFrameIdx]))
+            combined_mask = np.zeros((height, width), dtype=np.uint8)
 
-            for out_obj_id, out_mask in videoSegments[outFrameIdx].items():
+            for out_obj_id, out_mask in videoSegments.get(outFrameIdx, {}).items():
+                mask_uint8 = out_mask[0].astype(np.uint8)
+                combined_mask = np.maximum(combined_mask, mask_uint8)
                 frame = showMaskCV(out_mask[0], frame, borders=True)
+
+            pred_mask_path = os.path.join(pred_masks_dir, f"{outFrameIdx:04d}.png")
+            cv2.imwrite(pred_mask_path, (combined_mask * 255).astype(np.uint8))
 
             # Write frame to video file
             out.write(frame)
