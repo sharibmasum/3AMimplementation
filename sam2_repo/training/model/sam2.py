@@ -68,7 +68,12 @@ class SAM2Train(SAM2Base):
         freeze_image_encoder=False,
         **kwargs,
     ):
-        super().__init__(image_encoder, memory_attention, memory_encoder, **kwargs)
+        super().__init__(
+            image_encoder=image_encoder,
+            memory_attention=memory_attention,
+            memory_encoder=memory_encoder,
+            **kwargs,
+        )
         self.use_act_ckpt_iterative_pt_sampling = use_act_ckpt_iterative_pt_sampling
         self.forward_backbone_per_frame_for_eval = forward_backbone_per_frame_for_eval
 

@@ -3,6 +3,16 @@
 # Model
 model:
   _target_: sam2.modeling.sam2_base.SAM2Base
+  geometry_extractor:
+    _target_: sam2.modeling.geometry_aware.MUSt3RLikeGeometryExtractor
+    in_channels: 3
+    feature_dims: [64, 128, 256]
+  feature_merger:
+    _target_: sam2.modeling.geometry_aware.FeatureMerger
+    appearance_dim: 256
+    geometry_dims: [64, 128, 256]
+    num_heads: 8
+    refinement_depth: 2
   image_encoder:
     _target_: sam2.modeling.backbones.image_encoder.ImageEncoder
     scalp: 1

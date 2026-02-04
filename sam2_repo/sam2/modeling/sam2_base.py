@@ -25,6 +25,8 @@ class SAM2Base(torch.nn.Module):
         image_encoder,
         memory_attention,
         memory_encoder,
+        geometry_extractor=None,
+        feature_merger=None,
         num_maskmem=7,  # default 1 input frame + 6 previous frames
         image_size=512,
         backbone_stride=16,  # stride of the image backbone output
@@ -98,6 +100,15 @@ class SAM2Base(torch.nn.Module):
 
         # Part 1: the image backbone
         self.image_encoder = image_encoder
+        # Optional geometry-aware path that runs in parallel with the image encoder.
+        # This is inference-safe (RGB only) and can be trained/fine-tuned separately.
+        self.geometry_extractor = geometry_extractor
+        self.feature_merger = feature_merger
+        if self.geometry_extractor is not None and self.feature_merger is None:
+            raise ValueError(
+                "geometry_extractor provided without feature_merger. "
+                "Provide both to enable geometry-aware fusion."
+            )
         # Use level 0, 1, 2 for high-res setting, or just level 2 for the default setting
         self.use_high_res_features_in_sam = use_high_res_features_in_sam
         self.num_feature_levels = 3 if use_high_res_features_in_sam else 1
@@ -467,6 +478,10 @@ class SAM2Base(torch.nn.Module):
     def forward_image(self, img_batch: torch.Tensor):
         """Get the image feature on the input batch."""
         backbone_out = self.image_encoder(img_batch)
+        if self.geometry_extractor is not None:
+            # Run geometry extraction in parallel with the appearance encoder.
+            # This path is RGB-only and does not require camera pose or 3D reconstruction.
+            backbone_out["geometry_features"] = self.geometry_extractor(img_batch)
         if self.use_high_res_features_in_sam:
             # precompute projected level 0 and level 1 features in SAM decoder
             # to avoid running it again on every SAM click
@@ -486,6 +501,13 @@ class SAM2Base(torch.nn.Module):
 
         feature_maps = backbone_out["backbone_fpn"][-self.num_feature_levels :]
         vision_pos_embeds = backbone_out["vision_pos_enc"][-self.num_feature_levels :]
+        geometry_features = backbone_out.get("geometry_features", None)
+        if self.feature_merger is not None and geometry_features is not None:
+            # Replace the top-level appearance feature with a geometry-aware fused feature.
+            feature_maps[-1] = self.feature_merger(
+                appearance_features=feature_maps[-1],
+                geometry_features=geometry_features,
+            )
 
         feat_sizes = [(x.shape[-2], x.shape[-1]) for x in vision_pos_embeds]
         # flatten NxCxHxW to HWxNxC

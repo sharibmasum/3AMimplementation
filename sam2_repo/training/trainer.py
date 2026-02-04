@@ -4,6 +4,7 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
+import contextlib
 import gc
 import json
 import logging
@@ -858,10 +859,14 @@ class Trainer:
         # grads will also update a model even if the step doesn't produce
         # gradients
         self.optim.zero_grad(set_to_none=True)
-        with torch.cuda.amp.autocast(
-            enabled=self.optim_conf.amp.enabled,
-            dtype=get_amp_type(self.optim_conf.amp.amp_dtype),
-        ):
+        if self.device.type == "cuda":
+            autocast_ctx = torch.cuda.amp.autocast(
+                enabled=self.optim_conf.amp.enabled,
+                dtype=get_amp_type(self.optim_conf.amp.amp_dtype),
+            )
+        else:
+            autocast_ctx = contextlib.nullcontext()
+        with autocast_ctx:
             loss_dict, batch_size, extra_losses = self._step(
                 batch,
                 self.model,

@@ -37,7 +37,13 @@ def showMaskCV(mask, frame, random_color=False, borders=True):
 class SAM2:
     def __init__(self):
             print("starting on paths")
-            self.checkpoint = os.path.join(os.getcwd(), 'sam2_repo', 'checkpoints', 'sam2.1_hiera_large.pt')
+            self.checkpoint = os.path.join(
+                os.getcwd(),
+                'sam2_logs',
+                'my_video_ft_l',
+                'checkpoints',
+                'checkpoint.pt',
+            )
             self.model_cfg = "configs/sam2.1/sam2.1_hiera_l.yaml"
             self.video_dir = os.path.join(os.getcwd(), 'videos', 'frames')
             self.frame_names = [
@@ -61,7 +67,15 @@ class SAM2:
             device = torch.device("cpu")
         print(f"using device {device}")
 
-        self.predictor = build_sam2_video_predictor(self.model_cfg, self.checkpoint, device=device)
+        # Build model without auto-loading so we can load custom checkpoints with strict=False.
+        self.predictor = build_sam2_video_predictor(
+            self.model_cfg, ckpt_path=None, device=device
+        )
+        ckpt = torch.load(self.checkpoint, map_location="cpu")
+        state_dict = ckpt["model"] if isinstance(ckpt, dict) and "model" in ckpt else ckpt
+        missing, unexpected = self.predictor.load_state_dict(state_dict, strict=False)
+        if missing or unexpected:
+            print(f"Loaded checkpoint with missing keys: {len(missing)}, unexpected keys: {len(unexpected)}")
         self.inference_state = self.predictor.init_state(video_path=self.video_dir)
         self.predictor.reset_state(self.inference_state)
 
