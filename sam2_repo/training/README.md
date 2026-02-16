@@ -3,6 +3,17 @@
 This folder contains the training code for SAM 2, a foundation model for promptable visual segmentation in images and videos. 
 The code allows users to train and fine-tune SAM 2 on their own datasets (image, video, or both).
 
+## Geometry-aware training (optional)
+
+This repo includes training-only stubs to support geometry-aware sampling strategies:
+
+- Field-of-view-aware sampling: favors frame subsets with overlapping FOV to reduce drift.
+- Geometry-consistent frame selection: favors frame pairs with consistent geometric cues.
+
+These utilities live in `training/utils/geometry_sampling.py` and are **not** required at
+inference time. They are intentionally minimal placeholders to document the expected
+interfaces and can be implemented for a specific dataset/metadata setup.
+
 ## Structure
 
 The training code is organized into the following subfolders:

@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import List
 
 from training.dataset.vos_segment_loader import LazySegments
+from training.utils.geometry_sampling import field_of_view_aware_sampling
 
 MAX_RETRIES = 1000
 
@@ -34,10 +35,18 @@ class RandomUniformSampler(VOSSampler):
         num_frames,
         max_num_objects,
         reverse_time_prob=0.0,
+        enable_fov_sampling: bool = False,
+        fov_sampling_prob: float = 0.0,
+        fov_threshold: float = 0.25,
+        max_fov_points: int = 20000,
     ):
         self.num_frames = num_frames
         self.max_num_objects = max_num_objects
         self.reverse_time_prob = reverse_time_prob
+        self.enable_fov_sampling = enable_fov_sampling
+        self.fov_sampling_prob = fov_sampling_prob
+        self.fov_threshold = fov_threshold
+        self.max_fov_points = max_fov_points
 
     def sample(self, video, segment_loader, epoch=None):
 
@@ -48,6 +57,21 @@ class RandomUniformSampler(VOSSampler):
                 )
             start = random.randrange(0, len(video.frames) - self.num_frames + 1)
             frames = [video.frames[start + step] for step in range(self.num_frames)]
+            if (
+                self.enable_fov_sampling
+                and getattr(video, "camera_metadata", None) is not None
+                and random.uniform(0, 1) < self.fov_sampling_prob
+            ):
+                frames = field_of_view_aware_sampling(
+                    frames,
+                    video.camera_metadata,
+                    rng=None,
+                    segment_loader=segment_loader,
+                    tau=self.fov_threshold,
+                    max_points=self.max_fov_points,
+                )
+                if len(frames) != self.num_frames:
+                    continue
             if random.uniform(0, 1) < self.reverse_time_prob:
                 # Reverse time
                 frames = frames[::-1]

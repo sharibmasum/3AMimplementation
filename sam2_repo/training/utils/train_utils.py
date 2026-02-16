@@ -200,6 +200,14 @@ class MemMeter:
         self._allow_updates = True
 
     def update(self, n=1, reset_peak_usage=True):
+        if self.device is None or getattr(self.device, "type", None) != "cuda":
+            # Skip CUDA memory stats on CPU/MPS to avoid errors.
+            self.val = 0
+            self.sum += self.val * n
+            self.count += n
+            self.avg = self.sum / self.count
+            self.peak = max(self.peak, self.val)
+            return
         self.val = torch.cuda.max_memory_allocated() // 1e9
         self.sum += self.val * n
         self.count += n

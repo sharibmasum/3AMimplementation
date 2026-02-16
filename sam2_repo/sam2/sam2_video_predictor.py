@@ -1016,6 +1016,9 @@ class SAM2VideoPredictorVOS(SAM2VideoPredictor):
         cloning the backbone features and pos encoding to enable compilation.
         """
         backbone_out = self.image_encoder(img_batch)
+        if self.geometry_extractor is not None:
+            # Keep geometry extraction parallel to the appearance encoder.
+            backbone_out["geometry_features"] = self.geometry_extractor(img_batch)
         if self.use_high_res_features_in_sam:
             # precompute projected level 0 and level 1 features in SAM decoder
             # to avoid running it again on every SAM click
@@ -1031,6 +1034,10 @@ class SAM2VideoPredictorVOS(SAM2VideoPredictor):
             backbone_out["vision_pos_enc"][i] = backbone_out["vision_pos_enc"][
                 i
             ].clone()
+        if "geometry_features" in backbone_out:
+            backbone_out["geometry_features"] = [
+                feat.clone() for feat in backbone_out["geometry_features"]
+            ]
         return backbone_out
 
     def _forward_sam_heads(
