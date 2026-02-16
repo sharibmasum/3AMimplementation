@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import glob
+import json
 import logging
 import os
 from dataclasses import dataclass
@@ -13,6 +14,7 @@ from typing import List, Optional
 
 import pandas as pd
 
+import numpy as np
 import torch
 
 from iopath.common.file_io import g_pathmgr
@@ -40,6 +42,7 @@ class VOSVideo:
     video_name: str
     video_id: int
     frames: List[VOSFrame]
+    camera_metadata: Optional[dict] = None
 
     def __len__(self):
         return len(self.frames)
@@ -65,6 +68,7 @@ class PNGRawDataset(VOSRawDataset):
         single_object_mode=False,
         truncate_video=-1,
         frames_sampling_mult=False,
+        camera_metadata_path: Optional[str] = None,
     ):
         self.img_folder = img_folder
         self.gt_folder = gt_folder
@@ -72,6 +76,11 @@ class PNGRawDataset(VOSRawDataset):
         self.is_palette = is_palette
         self.single_object_mode = single_object_mode
         self.truncate_video = truncate_video
+        self.camera_metadata_path = camera_metadata_path
+        self._camera_metadata_index = None
+        if self.camera_metadata_path and os.path.isfile(self.camera_metadata_path):
+            with g_pathmgr.open(self.camera_metadata_path, "r") as f:
+                self._camera_metadata_index = json.load(f)
 
         # Read the subset defined in file_list_txt
         if file_list_txt is not None:
@@ -91,6 +100,14 @@ class PNGRawDataset(VOSRawDataset):
         self.video_names = sorted(
             [video_name for video_name in subset if video_name not in excluded_files]
         )
+
+        # If frames live directly in img_folder (no per-video subdirs),
+        # treat the whole folder as a single video.
+        entries = [name for name in os.listdir(self.img_folder) if not name.startswith(".")]
+        has_jpg = any(name.lower().endswith((".jpg", ".jpeg")) for name in entries)
+        has_dir = any(os.path.isdir(os.path.join(self.img_folder, name)) for name in entries)
+        if has_jpg and not has_dir:
+            self.video_names = ["."]
 
         if self.single_object_mode:
             # single object mode
@@ -138,8 +155,46 @@ class PNGRawDataset(VOSRawDataset):
         for _, fpath in enumerate(all_frames[:: self.sample_rate]):
             fid = int(os.path.basename(fpath).split(".")[0])
             frames.append(VOSFrame(fid, image_path=fpath))
-        video = VOSVideo(video_name, idx, frames)
+        camera_metadata = self._load_camera_metadata(video_name)
+        video = VOSVideo(video_name, idx, frames, camera_metadata=camera_metadata)
         return video, segment_loader
+
+    def _load_camera_metadata(self, video_name):
+        if not self.camera_metadata_path:
+            return None
+        data = None
+        if self._camera_metadata_index is not None:
+            data = self._camera_metadata_index.get(video_name)
+            if data is None and video_name.isdigit():
+                data = self._camera_metadata_index.get(int(video_name))
+        elif os.path.isdir(self.camera_metadata_path):
+            meta_path = os.path.join(self.camera_metadata_path, f"{video_name}.json")
+            if g_pathmgr.exists(meta_path):
+                with g_pathmgr.open(meta_path, "r") as f:
+                    data = json.load(f)
+
+        if data is None:
+            return None
+
+        frames_meta = data.get("frames", data)
+        camera_metadata = {}
+        for frame_id, meta in frames_meta.items():
+            frame_idx = int(frame_id)
+            meta = dict(meta)
+            depth_path = meta.get("depth_path")
+            if depth_path is not None and meta.get("depth") is None:
+                depth_path = os.path.expanduser(depth_path)
+                if not os.path.isabs(depth_path):
+                    if os.path.isdir(self.camera_metadata_path):
+                        depth_path = os.path.join(self.camera_metadata_path, depth_path)
+                    else:
+                        depth_path = os.path.join(os.path.dirname(self.camera_metadata_path), depth_path)
+                if depth_path.endswith(".npz"):
+                    meta["depth"] = np.load(depth_path)["depth"]
+                else:
+                    meta["depth"] = np.load(depth_path)
+            camera_metadata[frame_idx] = meta
+        return camera_metadata
 
     def __len__(self):
         return len(self.video_names)

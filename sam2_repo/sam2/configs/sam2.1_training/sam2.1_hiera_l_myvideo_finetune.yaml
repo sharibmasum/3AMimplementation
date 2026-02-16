@@ -1,21 +1,21 @@
 # @package _global_
 
 scratch:
-  resolution: 1024
+  resolution: 512
   train_batch_size: 1
-  num_train_workers: 10
+  num_train_workers: 4
   num_frames: 8
   max_num_objects: 3
   base_lr: 5.0e-6
   vision_lr: 3.0e-06
   phases_per_epoch: 1
-  num_epochs: 40
+  num_epochs: 5
 
 dataset:
-  # PATHS to Dataset
-  img_folder: null # PATH to MOSE JPEGImages folder
-  gt_folder: null  # PATH to MOSE Annotations folder
-  file_list_txt: training/assets/MOSE_sample_train_list.txt # Optional PATH to filelist containing a subset of videos to be used for training
+  # PATHS to Dataset (update these to match your project structure)
+  img_folder: null  # e.g., /path/to/your/project/videos/frames
+  gt_folder: null   # e.g., /path/to/your/project/videos/gt_masks
+  file_list_txt: training/assets/my_video_train_list.txt  # relative to sam2_repo/
   multiplier: 2
 
 # Video transforms
@@ -58,7 +58,7 @@ trainer:
   _target_: training.trainer.Trainer
   mode: train_only
   max_epochs: ${times:${scratch.num_epochs},${scratch.phases_per_epoch}}
-  accelerator: cuda
+  accelerator: mps
   seed_value: 123
 
   model:
@@ -248,7 +248,7 @@ trainer:
 
   optim:
     amp:
-      enabled: True
+      enabled: False
       amp_dtype: bfloat16
 
     optimizer:
@@ -306,7 +306,7 @@ trainer:
       focal_alpha_obj_score: -1.0
 
   distributed:
-    backend: nccl
+    backend: gloo
     find_unused_parameters: True
 
   logging:
@@ -321,24 +321,24 @@ trainer:
   # initialize from a SAM 2 checkpoint
   checkpoint:
     save_dir: ${launcher.experiment_log_dir}/checkpoints
-    save_freq: 0 # 0 only last checkpoint is saved.
+    save_freq: 0 # only save the final checkpoint
+    save_list: [1] # still save epoch 1 so you get a single checkpoint
     model_weight_initializer:
       _partial_: True
       _target_: training.utils.checkpoint_utils.load_state_dict_into_model
       strict: False
       ignore_unexpected_keys: null
       ignore_missing_keys:
-        - "geometry_extractor.*"
         - "feature_merger.*"
 
       state_dict:
         _target_: training.utils.checkpoint_utils.load_checkpoint_and_apply_kernels
-        checkpoint_path: ./checkpoints/sam2.1_hiera_large.pt # PATH to SAM 2.1 checkpoint
+        checkpoint_path: checkpoints/sam2.1_hiera_large.pt  # relative to sam2_repo/
         ckpt_state_dict_keys: ['model']
 
 launcher:
   num_nodes: 1
-  gpus_per_node: 8
+  gpus_per_node: 1
   experiment_log_dir: null # Path to log directory, defaults to ./sam2_logs/${config_name}
 
 # SLURM args if running on a cluster

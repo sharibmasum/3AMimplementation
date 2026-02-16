@@ -1,5 +1,37 @@
-/datasets/
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
 venv/
+env/
+ENV/
+
+# Data directories
+/datasets/
+videos/frames/
+videos/gt_masks/
+videos/pred_masks*/
+videos/*.mp4
+
+# Model weights (users should download these)
+must3r_weights/
+sam2_repo/checkpoints/*.pt
+sam2_repo/checkpoints/*.pth
+
+# Training artifacts
 sam2_logs/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Documentation (internal)
+TECHNICAL_OVERVIEW.md
+
